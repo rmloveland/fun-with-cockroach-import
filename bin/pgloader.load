@@ -1,0 +1,3 @@
+LOAD DATABASE
+        FROM mysql://root:foo@localhost/employees
+        INTO postgresql://localhost:5432/employees

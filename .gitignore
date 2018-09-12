@@ -1,0 +1,6 @@
+*~
+*.bak
+*.gz
+csv/
+pg_dump/
+mysqldump/
