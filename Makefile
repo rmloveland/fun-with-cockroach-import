@@ -51,6 +51,9 @@ pgloader:
 
 # Data compression
 
+dist: tar-csv tar-pgdump tar-mysqldump
+	echo 'Done making tarballs.'
+
 tar-csv:
 	tar -cv csv | gzip > employees-database-csv.tar.gz
 
