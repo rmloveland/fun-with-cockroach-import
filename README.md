@@ -1,10 +1,6 @@
 # Fun with Cockroach IMPORT
 
-The data in this repo is from the
-[employees data set](https://github.com/datacharmer/test_db) that is
-also used in the [MySQL docs](https://dev.mysql.com/doc/employee/en/).
-The data set was imported into Postgres from MySQL using
-[pgloader](https://pgloader.io).
+The data in this repo is from the [employees data set](https://github.com/datacharmer/test_db) that is also used in the [MySQL docs](https://dev.mysql.com/doc/employee/en/). The data set was imported into Postgres from MySQL using [pgloader](https://pgloader.io).
 
 Tables:
 
@@ -23,25 +19,52 @@ The various make targets assume you have the following:
 2. A local Postgres server running with the `employees` data set available in the public schema
 3. A local (insecure) CockroachDB cluster running with an `employees` database ready to accept the data
 
+Software:
+
++ perl
++ pgloader
+
 Version info:
 
-+ postgres (PostgreSQL) 10.5
-
-+ /usr/local/bin/mysql  Ver 14.14 Distrib 5.7.22, for osx10.12 (x86_64) using  EditLine wrapper
-
-+   CockroachDB CCL v2.2.0-alpha.00000000-757-gb33c49ff73 (x86_64-apple-darwin16.7.0, built 2018/09/12 19:30:43, go1.10.3)  (built from master on Wednesday, September 12, 2018)
+- postgres (PostgreSQL) 10.5
+- /usr/local/bin/mysql  Ver 14.14 Distrib 5.7.22, for osx10.12 (x86_64) using  EditLine wrapper
+- CockroachDB CCL v2.2.0-alpha.00000000-757-gb33c49ff73 (x86_64-apple-darwin16.7.0, built 2018/09/12 19:30:43, go1.10.3)  (built from master on Wednesday, September 12, 2018)
 
 ## Make targets
 
 At a high level, each of the following make targets runs commands to:
 
-1. Dump the previous DB (except CSV, obv.)
-2. Copy the dump files to the local nodes' storage
-3. Runs the CockroachDB IMPORT statements
+1. Dump the previous DB into one or more files (except CSV, obv.)
+2. Copy the dump file(s) to the local nodes' storage
+3. Run the CockroachDB IMPORT statement(s)
 4. ???
 5. PROFIT!
 
 ### Postgres
+
+#### Whole database at once
+
+    $ make import-pgdump-full
+
+Which will result in roughly these commands (`>` runs in the DB, `$` runs in the shell):
+
+    > DROP TABLE IF EXISTS departments CASCADE
+    > DROP TABLE IF EXISTS dept_emp CASCADE
+    > DROP TABLE IF EXISTS dept_manager CASCADE
+    > DROP TABLE IF EXISTS employees CASCADE
+    > DROP TABLE IF EXISTS salaries CASCADE
+    > DROP TABLE IF EXISTS titles CASCADE
+
+    $ pg_dump --no-privileges --disable-triggers employees > /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump/employees-full.sql
+    $ perl -i.bak -lapE 's/gender [a-z]+.employees_gender/gender STRING/' /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump/employees-full.sql
+
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump//employees-full.sql /tmp/node0/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump//employees-full.sql /tmp/node1/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump//employees-full.sql /tmp/node2/extern/
+
+    > IMPORT PGDUMP 'nodelocal:///employees-full.sql';
+
+#### One table at a time using `IMPORT TABLE foo ( $schema ) PGDUMP ...`
 
     $ make import-pgdump
 
@@ -123,15 +146,65 @@ will result in roughly these commands (`>` runs in the DB, `$` runs in the shell
     to_date DATE
      ) PGDUMP DATA ('nodelocal:///titles.sql');
 
-### Postgres (all at once from one huge dump file)
+#### One table at a time using `IMPORT TABLE foo FROM PGDUMP ...`
 
+    $ make import-pgdump-full-by-parts
 
+Which will result in roughly these commands (`>` runs in the DB, `$` runs in the shell):
 
-### Postgres (one table at a time from one huge dump file)
+    > DROP TABLE IF EXISTS departments CASCADE
+    > DROP TABLE IF EXISTS dept_emp CASCADE
+    > DROP TABLE IF EXISTS dept_manager CASCADE
+    > DROP TABLE IF EXISTS employees CASCADE
+    > DROP TABLE IF EXISTS salaries CASCADE
+    > DROP TABLE IF EXISTS titles CASCADE
 
-NOT WORKING YET
+    $ pg_dump --no-privileges --disable-triggers employees > /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump/employees-full.sql
+    $ perl -i.bak -lapE 's/gender [a-z]+.employees_gender/gender STRING/' /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump/employees-full.sql
+
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump//employees-full.sql /tmp/node0/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump//employees-full.sql /tmp/node1/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump//employees-full.sql /tmp/node2/extern/
+
+    > IMPORT TABLE employees FROM PGDUMP 'nodelocal:///employees-full.sql'
+    > IMPORT TABLE departments FROM PGDUMP 'nodelocal:///employees-full.sql'
+
+    > IMPORT TABLE dept_manager FROM PGDUMP 'nodelocal:///employees-full.sql'
+    DBD::Pg::st execute failed: ERROR:  XX000: referenced table "employees" not found in tables being imported (dept_manager) at bin/import-pgdump.pl line 37.
+
+    > IMPORT TABLE dept_emp FROM PGDUMP 'nodelocal:///employees-full.sql'
+    DBD::Pg::st execute failed: ERROR:  XX000: referenced table "employees" not found in tables being imported (dept_emp) at bin/import-pgdump.pl line 37.
+
+    > IMPORT TABLE titles FROM PGDUMP 'nodelocal:///employees-full.sql'
+    DBD::Pg::st execute failed: ERROR:  XX000: referenced table "employees" not found in tables being imported (titles) at bin/import-pgdump.pl line 37.
+
+    > IMPORT TABLE salaries FROM PGDUMP 'nodelocal:///employees-full.sql'
+    DBD::Pg::st execute failed: ERROR:  XX000: referenced table "employees" not found in tables being imported (salaries) at bin/import-pgdump.pl line 37.
 
 ### MySQL
+
+#### Whole database at once
+
+    $ make import-mysqldump-full
+
+Which will result in roughly these commands (`>` runs in the DB, `$` runs in the shell):
+
+    > DROP TABLE IF EXISTS departments CASCADE
+    > DROP TABLE IF EXISTS dept_emp CASCADE
+    > DROP TABLE IF EXISTS dept_manager CASCADE
+    > DROP TABLE IF EXISTS employees CASCADE
+    > DROP TABLE IF EXISTS salaries CASCADE
+    > DROP TABLE IF EXISTS titles CASCADE
+
+    $ mysqldump -uroot employees > /Users/rloveland/work/code/fun-with-cockroach-import/mysqldump/employees-full.sql
+
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/mysqldump//employees-full.sql /tmp/node0/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/mysqldump//employees-full.sql /tmp/node1/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/mysqldump//employees-full.sql /tmp/node2/extern/
+
+    > IMPORT MYSQLDUMP 'nodelocal:///employees-full.sql';
+
+#### One table at a time using `IMPORT TABLE foo ( $schema ) MYSQLDUMP ...`
 
     $ make import-mysqldump
 
@@ -209,6 +282,40 @@ Which will result in roughly these commands (`>` runs in the DB, `$` runs in the
     from_date DATE NOT NULL,
     to_date DATE
      ) MYSQLDUMP DATA ('nodelocal:///titles.sql');
+
+#### One table at a time using `IMPORT TABLE foo FROM MYSQLDUMP ...`
+
+    $ make import-mysqldump-full-by-parts
+
+Which will result in roughly these commands (`>` runs in the DB, `$` runs in the shell):
+
+    > DROP TABLE IF EXISTS departments CASCADE
+    > DROP TABLE IF EXISTS dept_emp CASCADE
+    > DROP TABLE IF EXISTS dept_manager CASCADE
+    > DROP TABLE IF EXISTS employees CASCADE
+    > DROP TABLE IF EXISTS salaries CASCADE
+    > DROP TABLE IF EXISTS titles CASCADE
+
+    $ mysqldump -uroot -pfoo employees > /Users/rloveland/work/code/fun-with-cockroach-import/mysqldump/employees-full.sql
+
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/mysqldump//employees-full.sql /tmp/node0/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/mysqldump//employees-full.sql /tmp/node1/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/mysqldump//employees-full.sql /tmp/node2/extern/
+
+    > IMPORT TABLE employees FROM MYSQLDUMP 'nodelocal:///employees-full.sql'
+    > IMPORT TABLE departments FROM MYSQLDUMP 'nodelocal:///employees-full.sql'
+
+    > IMPORT TABLE dept_manager FROM MYSQLDUMP 'nodelocal:///employees-full.sql'
+    DBD::Pg::st execute failed: ERROR:  XX000: referenced table "employees" not found in tables being imported (dept_manager) at bin/import-mysqldump.pl line 38.
+
+    > IMPORT TABLE dept_emp FROM MYSQLDUMP 'nodelocal:///employees-full.sql'
+    DBD::Pg::st execute failed: ERROR:  XX000: referenced table "employees" not found in tables being imported (dept_emp) at bin/import-mysqldump.pl line 38.
+
+    > IMPORT TABLE titles FROM MYSQLDUMP 'nodelocal:///employees-full.sql'
+    DBD::Pg::st execute failed: ERROR:  XX000: referenced table "employees" not found in tables being imported (titles) at bin/import-mysqldump.pl line 38.
+
+    > IMPORT TABLE salaries FROM MYSQLDUMP 'nodelocal:///employees-full.sql'
+    DBD::Pg::st execute failed: ERROR:  XX000: referenced table "employees" not found in tables being imported (salaries) at bin/import-mysqldump.pl line 38.
 
 ### CSV
 
