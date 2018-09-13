@@ -3,7 +3,7 @@
 use strict;
 use warnings;
 use autodie;
-use experimentals;
+use feature qw/ say /;
 use Cwd;
 use DBI;
 

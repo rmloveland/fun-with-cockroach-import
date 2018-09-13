@@ -2,7 +2,7 @@ package main;
 
 use strict;
 use warnings;
-use experimentals;
+use feature qw/ say /;
 
 sub cp2nodes {
     my ( $file, $verbose ) = @_;
