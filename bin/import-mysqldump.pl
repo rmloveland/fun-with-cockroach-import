@@ -11,7 +11,7 @@ push @INC, '.';
 require './bin/cp2nodes.pl';
 my %tables = do './bin/table-data.pl';
 
-our ( $verbose, $full );
+our ( $verbose, $full, $byparts );
 
 die qq[No CockroachDB cluster running!\n] unless qx[pgrep cockroach];
 
@@ -27,10 +27,23 @@ if ($full) {
     my $file = qq[employees-full.sql];
     die qq[$0: cp2nodes failed!\n]
       unless cp2nodes( qq[$dir/$file], $verbose );
-    my $stmt = qq[IMPORT MYSQLDUMP 'nodelocal:///$file';];
-    say qq[> $stmt] if $verbose;
-    my $sth = $dbh->prepare($stmt);
-    $sth->execute();
+    if ($byparts) {
+        my @tables =
+          qw/ employees departments dept_manager dept_emp titles salaries /;
+        for my $table (@tables) {
+            my $stmt =
+              qq[IMPORT TABLE $table FROM MYSQLDUMP 'nodelocal:///$file'];
+            say qq[> $stmt] if $verbose;
+            my $sth = $dbh->prepare($stmt);
+            $sth->execute();
+        }
+    }
+    else {
+        my $stmt = qq[IMPORT MYSQLDUMP 'nodelocal:///$file';];
+        say qq[> $stmt] if $verbose;
+        my $sth = $dbh->prepare($stmt);
+        $sth->execute();
+    }
 }
 else {
     for my $table ( sort keys %tables ) {

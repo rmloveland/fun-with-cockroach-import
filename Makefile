@@ -37,6 +37,9 @@ import-mysqldump: mysqldump
 import-mysqldump-full: mysqldump-full
 	perl bin/import-mysqldump.pl -verbose -full
 
+import-mysqldump-full-by-parts: mysqldump-full # FAILS - tables need to be in specific order
+	perl bin/import-mysqldump.pl -verbose -full -byparts
+
 # Setup/Teardown
 
 crdb-database-exists:
