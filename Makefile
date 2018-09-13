@@ -5,6 +5,9 @@ all:
 mysqldump: import-clean
 	perl bin/mysqldump.pl
 
+mysqldump-full: import-clean
+	perl bin/mysqldump.pl -full -verbose
+
 pgdump: import-clean
 	perl bin/pgdump.pl -verbose
 
@@ -30,6 +33,9 @@ import-pgdump-full-by-parts: pgdump-full # FAILS - tables need to be in specific
 
 import-mysqldump: mysqldump
 	perl bin/import-mysqldump.pl -verbose
+
+import-mysqldump-full: mysqldump-full
+	perl bin/import-mysqldump.pl -verbose -full
 
 # Setup/Teardown
 

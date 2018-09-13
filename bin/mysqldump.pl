@@ -1,8 +1,12 @@
-#!/usr/bin/env perl
+#!/usr/bin/env perl -s
 
 use strict;
 use warnings;
+use autodie;
+use feature qw/ say /;
 use Cwd;
+
+our ( $full, $verbose );
 
 my $usage = <<"EOF";
 No MySQL server running!  Try:
@@ -22,10 +26,19 @@ my @tables = qw/
   titles
   /;
 
-for my $table (@tables) {
-    my $cmd =
-      qq[mysqldump -uroot -pfoo employees $table > $cwd/mysqldump/$table.sql];
+if ($full) {
+    my $file = qq[$cwd/mysqldump/employees-full.sql];
+    my $cmd  = qq[mysqldump -uroot -pfoo employees > $file];
+    say qq[\$ $cmd] if $verbose;
     system $cmd;
+}
+else {
+    for my $table (@tables) {
+        my $cmd =
+qq[mysqldump -uroot -pfoo employees $table > $cwd/mysqldump/$table.sql];
+        say qq[\$ $cmd] if $verbose;
+        system $cmd;
+    }
 }
 
 __END__
