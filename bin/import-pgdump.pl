@@ -31,7 +31,8 @@ if ($full) {
         my @tables =
           qw/ employees departments dept_manager dept_emp titles salaries /;
         for my $table (@tables) {
-            my $stmt = qq[IMPORT TABLE $table FROM PGDUMP 'nodelocal:///$file'];
+            my $stmt =
+qq[IMPORT TABLE $table FROM PGDUMP 'nodelocal:///$file' WITH skip_foreign_keys];
             say qq[> $stmt] if $verbose;
             my $sth = $dbh->prepare($stmt);
             $sth->execute();
