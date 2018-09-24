@@ -64,6 +64,40 @@ Which will result in roughly these commands (`>` runs in the DB, `$` runs in the
 
     > IMPORT PGDUMP 'nodelocal:///employees-full.sql';
 
+##### No privileges failure
+
+If the `pg_dump` flag `--no-privileges` is removed, it fails as follows (note the recent CRDB build from `master`):
+
+    +-----------------------------------------------------------------------------------------------------------------------+
+      CockroachDB CCL v2.2.0-alpha.00000000-1019-gb9c9309d81 (x86_64-apple-darwin16.7.0, built 2018/09/24 16:37:02, go1.11)
+    (1 row)
+    > DROP TABLE IF EXISTS departments CASCADE
+    > DROP TABLE IF EXISTS dept_emp CASCADE
+    > DROP TABLE IF EXISTS dept_manager CASCADE
+    > DROP TABLE IF EXISTS employees CASCADE
+    > DROP TABLE IF EXISTS salaries CASCADE
+    > DROP TABLE IF EXISTS titles CASCADE
+    perl bin/pgdump.pl -full -verbose
+    $ pg_dump --disable-triggers employees > /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump/employees-full.sql
+    $ perl -i.bak -lapE 's/gender [a-z]+.employees_gender/gender STRING/' /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump/employees-full.sql
+    perl bin/import-pgdump.pl -verbose -full
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump//employees-full.sql /tmp/node0/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump//employees-full.sql /tmp/node1/extern/
+    $ rsync -q /Users/rloveland/work/code/fun-with-cockroach-import/pg_dump//employees-full.sql /tmp/node2/extern/
+    > IMPORT PGDUMP 'nodelocal:///employees-full.sql';
+    DBD::Pg::st execute failed: ERROR:  XX000: syntax error at or near "public"
+    source SQL:
+
+
+
+    --
+    -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: rloveland
+    --
+
+    GRANT ALL ON SCHEMA public TO PUBLIC;
+                        ^ at bin/import-pgdump.pl line 45.
+
+
 #### One table at a time using `IMPORT TABLE foo ( $schema ) PGDUMP ...`
 
     $ make import-pgdump
